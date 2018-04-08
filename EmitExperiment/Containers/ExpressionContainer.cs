@@ -1,20 +1,22 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace EmitExperiment.Containers
 {
     /// <summary>
     /// Dependency container implementation.
     /// </summary>
-    public class SimpleCacheContainer: IContainer
+    public class ExpressionContainer: IContainer
     {
         #region Constructor
 
-        public SimpleCacheContainer()
+        public ExpressionContainer()
         {
+            _constructors = new Dictionary<Type, Func<IContainer, object>>();
             _registeredTypes = new Dictionary<Type, Func<object>>();
-            _constructors = new Dictionary<Type, Func<object>>();
         }
 
         #endregion
@@ -24,7 +26,7 @@ namespace EmitExperiment.Containers
         /// <summary>
         /// Cached list of constructors.
         /// </summary>
-        private Dictionary<Type, Func<object>> _constructors;
+        private Dictionary<Type, Func<IContainer, object>> _constructors;
 
         /// <summary>
         /// List of explicit constructors.
@@ -51,25 +53,26 @@ namespace EmitExperiment.Containers
         }
 
         /// <summary>
-        /// Gets the object of specified type.
+        /// Returns the implementation of a type from the container.
         /// </summary>
         public object Get(Type type)
         {
             if(!_registeredTypes.TryGetValue(type, out var explicitCtor))
                 throw new ArgumentException($"Type {type.Name} is not registered.");
 
-            if (explicitCtor != null)
+            if(explicitCtor != null)
                 return explicitCtor();
 
             try
             {
-                return _constructors[type]();
+                var obj = _constructors[type](this);
+                return obj;
             }
-            catch (KeyNotFoundException)
+            catch(KeyNotFoundException)
             {
                 throw new InvalidOperationException("The container must be prepared before usage.");
             }
-            catch (ArgumentException ex)
+            catch(ArgumentException ex)
             {
                 throw new ArgumentException($"Could not resolve type '{type.Name}' because one of its dependencies is not registered.", ex);
             }
@@ -81,17 +84,17 @@ namespace EmitExperiment.Containers
         public T Get<T>()
             where T : class
         {
-            return (T) Get(typeof(T));
+            return (T)Get(typeof(T));
         }
 
         /// <summary>
-        /// Prepares the container.
+        /// Prepares the constructors for all types.
         /// </summary>
         public void Prepare()
         {
-            foreach (var type in _registeredTypes.Keys)
+            foreach(var type in _registeredTypes.Keys)
             {
-                if (_registeredTypes[type] == null)
+                if(_registeredTypes[type] == null)
                     _constructors[type] = CreateFactory(type);
             }
         }
@@ -103,19 +106,23 @@ namespace EmitExperiment.Containers
         /// <summary>
         /// Generates a factory for the type.
         /// </summary>
-        private Func<object> CreateFactory(Type t)
+        private Func<IContainer, object> CreateFactory(Type t)
         {
+            var containerType = typeof(IContainer);
+            var containerGet = containerType.GetMethod(nameof(Get), new Type[0]);
+
             var ctors = t.GetConstructors();
             if(ctors.Length > 1)
                 throw new ArgumentException($"Cannot register type '{t.Name}' because it has more than one constructor.");
 
             var ctor = ctors[0];
-            var args = ctor.GetParameters();
-            return () =>
-            {
-                var values = args.Select(x => Get(x.ParameterType)).ToArray();
-                return ctor.Invoke(values);
-            };
+
+            var lambdaArg = Expression.Parameter(containerType, "container");
+            var args = ctor.GetParameters()
+                           .Select(x => Expression.Call(lambdaArg, containerGet.MakeGenericMethod(x.ParameterType)));
+
+            var expr = Expression.Lambda<Func<IContainer, object>>(Expression.New(ctor, args), lambdaArg);
+            return expr.Compile();
         }
 
         #endregion

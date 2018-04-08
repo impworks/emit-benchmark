@@ -102,7 +102,7 @@ namespace EmitExperiment.Containers
             var ctor = ctors[0];
             var args = ctor.GetParameters();
             var values = args.Select(x => Get(x.ParameterType)).ToArray();
-            return Activator.CreateInstance(t, values);
+            return ctor.Invoke(values);
         }
 
         #endregion

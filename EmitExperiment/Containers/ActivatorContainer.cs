@@ -7,11 +7,11 @@ namespace EmitExperiment.Containers
     /// <summary>
     /// Dependency container implementation.
     /// </summary>
-    public class SimpleCacheContainer: IContainer
+    public class ActivatorContainer: IContainer
     {
         #region Constructor
 
-        public SimpleCacheContainer()
+        public ActivatorContainer()
         {
             _registeredTypes = new Dictionary<Type, Func<object>>();
             _constructors = new Dictionary<Type, Func<object>>();
@@ -58,18 +58,18 @@ namespace EmitExperiment.Containers
             if(!_registeredTypes.TryGetValue(type, out var explicitCtor))
                 throw new ArgumentException($"Type {type.Name} is not registered.");
 
-            if (explicitCtor != null)
+            if(explicitCtor != null)
                 return explicitCtor();
 
             try
             {
                 return _constructors[type]();
             }
-            catch (KeyNotFoundException)
+            catch(KeyNotFoundException)
             {
                 throw new InvalidOperationException("The container must be prepared before usage.");
             }
-            catch (ArgumentException ex)
+            catch(ArgumentException ex)
             {
                 throw new ArgumentException($"Could not resolve type '{type.Name}' because one of its dependencies is not registered.", ex);
             }
@@ -81,7 +81,7 @@ namespace EmitExperiment.Containers
         public T Get<T>()
             where T : class
         {
-            return (T) Get(typeof(T));
+            return (T)Get(typeof(T));
         }
 
         /// <summary>
@@ -89,9 +89,9 @@ namespace EmitExperiment.Containers
         /// </summary>
         public void Prepare()
         {
-            foreach (var type in _registeredTypes.Keys)
+            foreach(var type in _registeredTypes.Keys)
             {
-                if (_registeredTypes[type] == null)
+                if(_registeredTypes[type] == null)
                     _constructors[type] = CreateFactory(type);
             }
         }
@@ -114,7 +114,7 @@ namespace EmitExperiment.Containers
             return () =>
             {
                 var values = args.Select(x => Get(x.ParameterType)).ToArray();
-                return ctor.Invoke(values);
+                return Activator.CreateInstance(t, values);
             };
         }
 

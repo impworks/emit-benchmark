@@ -19,15 +19,21 @@ namespace EmitExperiment.Tests
 
         [Benchmark]
         public void Simple() => Test(new SimpleContainer());
-
+        
         [Benchmark]
         public void SimpleCache() => Test(new SimpleCacheContainer());
-
+        
         [Benchmark]
         public void Emitter() => Test(new EmitContainer());
 
         [Benchmark]
         public void EmitterNonGeneric() => Test(new EmitNonGenericContainer());
+
+        [Benchmark]
+        public void Expression() => Test(new ExpressionContainer());
+
+        [Benchmark]
+        public void Activator() => Test(new ActivatorContainer());
 
         #region Testing
 
