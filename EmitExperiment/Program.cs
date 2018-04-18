@@ -4,11 +4,11 @@ using EmitExperiment.Tests;
 
 namespace EmitExperiment
 {
-    class Program
+    public class Program
     {
         static void Main()
         {
-            BenchmarkRunner.Run<ContainerTest>();
+            BenchmarkRunner.Run<MapperTest>();
             Console.ReadLine();
         }
     }

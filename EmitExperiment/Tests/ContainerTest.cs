@@ -14,7 +14,7 @@ namespace EmitExperiment.Tests
         /// <summary>
         /// Number of test repetitions.
         /// </summary>
-        [Params(10000)]
+        [Params(1000, 10000)]
         public int Runs = 1;
 
         [Benchmark]
@@ -25,9 +25,6 @@ namespace EmitExperiment.Tests
         
         [Benchmark]
         public void Emitter() => Test(new EmitContainer());
-
-        [Benchmark]
-        public void EmitterNonGeneric() => Test(new EmitNonGenericContainer());
 
         [Benchmark]
         public void Expression() => Test(new ExpressionContainer());
