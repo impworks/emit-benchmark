@@ -1,7 +1,7 @@
 ﻿function max(items)
 {
     if(items.length == 0)
-        throw "Error"";
+        throw "Error";
 
     var currMax = items[0];
     var i = 1;
