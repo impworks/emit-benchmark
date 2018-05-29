@@ -23,10 +23,9 @@ namespace EmitDebug
             var doc = mod.DefineDocument("Compare.txt", Guid.Empty, Guid.Empty, Guid.Empty);
 
             var type = mod.DefineType("TestType", TypeAttributes.Class | TypeAttributes.Public);
-            var met = type.DefineMethod("Max", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, typeof(int), new[] {typeof(int), typeof(int)});
+            var met = type.DefineMethod("Max", MethodAttributes.HideBySig | MethodAttributes.Public | MethodAttributes.Static, typeof(int), new[] {typeof(int[])});
 
-            met.DefineParameter(0, ParameterAttributes.None, "a");
-            met.DefineParameter(1, ParameterAttributes.None, "b");
+            met.DefineParameter(0, ParameterAttributes.None, "items");
 
             EmitMethodBody(met, doc);
 
@@ -53,28 +52,86 @@ namespace EmitDebug
         private void EmitMethodBody(MethodBuilder met, ISymbolDocumentWriter doc)
         {
             var gen = met.GetILGenerator();
-           
-            // if(a > b)
-            gen.MarkSequencePoint(doc, 3, 5, 3, 14);
 
-            var elseLabel = gen.DefineLabel();
-            var endLabel = gen.DefineLabel();
+            var currMax = gen.DeclareLocal(typeof(int));
+            var i = gen.DeclareLocal(typeof(int));
+            var elem = gen.DeclareLocal(typeof(int));
+          
+            // if(items.length == 0)
+            var afterCheckLabel = gen.DefineLabel();
+            gen.MarkSequencePoint(doc, 3, 5, 3, 100);
+            gen.Emit(OpCodes.Ldarg_0);
+            gen.Emit(OpCodes.Ldlen);
+            gen.Emit(OpCodes.Ldc_I4_0);
+            gen.Emit(OpCodes.Bge, afterCheckLabel);
 
+            // throw "Error"
+            gen.MarkSequencePoint(doc, 4, 9, 4, 100);
+            gen.Emit(OpCodes.Ldstr, "Array is empty!");
+            gen.Emit(OpCodes.Newobj, typeof(ArgumentException).GetConstructor(new [] { typeof(string) }));
+            gen.Emit(OpCodes.Throw);
+            gen.MarkLabel(afterCheckLabel);
+
+            // var currMax = items[0]
+            gen.MarkSequencePoint(doc, 6, 5, 6, 100);
             gen.Emit(OpCodes.Ldarg_0);
-            gen.Emit(OpCodes.Ldarg_1);
-            gen.Emit(OpCodes.Blt, elseLabel);
-            
-            // return a;
-            gen.MarkSequencePoint(doc, 4, 9, 4, 18);
+            gen.Emit(OpCodes.Ldc_I4_0);
+            gen.Emit(OpCodes.Ldelem_I4);
+            gen.Emit(OpCodes.Stloc, currMax);
+
+            // var i = 1
+            gen.MarkSequencePoint(doc, 7, 5, 7, 100);
+            gen.Emit(OpCodes.Ldc_I4_1);
+            gen.Emit(OpCodes.Stloc, i);
+
+            // gen.Emit(OpCodes.Ldc_I4_1);
+            // gen.Emit(OpCodes.Ret);
+            // return;
+
+            var loopLabel = gen.DefineLabel();
+            var afterLoopLabel = gen.DefineLabel();
+
+            // while (i < items.length)
+            gen.MarkSequencePoint(doc, 9, 5, 9, 100);
+            gen.MarkLabel(loopLabel);
+            gen.Emit(OpCodes.Ldloc, i);
             gen.Emit(OpCodes.Ldarg_0);
-            gen.Emit(OpCodes.Br, endLabel);
+            gen.Emit(OpCodes.Ldlen);
+            gen.Emit(OpCodes.Beq, afterLoopLabel);
+
+            // var elem = items[idx]
+            gen.MarkSequencePoint(doc, 11, 9, 11, 100);
+            gen.Emit(OpCodes.Ldarg_0);
+            gen.Emit(OpCodes.Ldloc, i);
+            gen.Emit(OpCodes.Ldelem_I4);
+            gen.Emit(OpCodes.Stloc, elem);
             
-            // return b;
-            gen.MarkSequencePoint(doc, 6, 9, 6, 18);
-            gen.MarkLabel(elseLabel);
-            gen.Emit(OpCodes.Ldarg_1);
+            // if(elem > currMax)
+            var afterCompareLabel = gen.DefineLabel();
+            gen.MarkSequencePoint(doc, 13, 9, 13, 100);
+            gen.Emit(OpCodes.Ldloc, elem);
+            gen.Emit(OpCodes.Ldloc, currMax);
+            gen.Emit(OpCodes.Ble, afterCompareLabel);
             
-            gen.MarkLabel(endLabel);
+            // currMax = elem
+            gen.MarkSequencePoint(doc, 14, 13, 14, 100);
+            gen.Emit(OpCodes.Ldloc, elem);
+            gen.Emit(OpCodes.Stloc, currMax);
+            gen.MarkLabel(afterCompareLabel);
+
+            // i++
+            gen.MarkSequencePoint(doc, 16, 9, 16, 100);
+            gen.Emit(OpCodes.Ldloc, i);
+            gen.Emit(OpCodes.Ldc_I4_1);
+            gen.Emit(OpCodes.Add);
+            gen.Emit(OpCodes.Stloc, i);
+
+            gen.Emit(OpCodes.Br, loopLabel);
+
+            // return currMax
+            gen.MarkSequencePoint(doc, 19, 5, 19, 100);
+            gen.MarkLabel(afterLoopLabel);
+            gen.Emit(OpCodes.Ldloc, currMax);
             gen.Emit(OpCodes.Ret);
         }
     }
